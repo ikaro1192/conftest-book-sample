@@ -12,11 +12,15 @@
 │   └── Dockerfile          # distroless nonrootによるマルチステージビルド
 ├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM
 ├── k8s/                    # アプリケーションのDeployment・Service
-└── policy/                 # Conftest/Regoポリシー(対象ごとにディレクトリを分割)
-    ├── terraform/
-    ├── dockerfile/
-    └── kubernetes/
+├── testdata/
+│   └── tfplan.json         # AWSアカウント不要で試せるterraform plan結果のサンプル
+└── policy/                 # Conftest/Regoポリシー(対象ごとにディレクトリ・パッケージを分割)
+    ├── terraform/          # package terraform
+    ├── dockerfile/         # package dockerfile
+    └── kubernetes/         # package kubernetes
 ```
+
+対象ごとにパッケージ名(namespace)を分けているのは、`opa test policy/`のようにポリシー全体を一括テストしたときに、異なる対象向けのルールが同じ`deny`集合へ混ざり込むのを避けるためである。
 
 ## ローカルで動かす
 
@@ -28,9 +32,17 @@ go run .
 curl http://localhost:8080/healthz          # => ok
 ```
 
+## ポリシー自体のテスト
+
+各ポリシーは`opa test`によるユニットテストを持つ(`<対象>_test.rego`)。AWSアカウントやDockerイメージを用意せずに、ポリシーの正しさだけを検証できる。
+
+```bash
+opa test policy/ -v
+```
+
 ## Terraformの検証
 
-AWSアカウントとS3バックエンド用のバケットを用意した上で、通常のTerraformワークフローを実行する。
+実際のAWSアカウントで試す場合は、S3バックエンド用のバケットを用意した上で、通常のTerraformワークフローを実行する。
 
 ```bash
 cd terraform
@@ -39,17 +51,21 @@ terraform plan -out=tfplan
 terraform show -json tfplan > tfplan.json
 ```
 
+AWSアカウントを用意しない場合は、`testdata/tfplan.json`をそのまま使える。
+
 ## Conftestでのポリシー検査
+
+ポリシーをパッケージごとに分けているため、`--namespace`で対象を明示する。
 
 ```bash
 # Terraform plan結果
-conftest test --policy policy/terraform tfplan.json
+conftest test --policy policy/terraform --namespace terraform testdata/tfplan.json
 
 # Dockerfile
-conftest test --policy policy/dockerfile app/Dockerfile
+conftest test --policy policy/dockerfile --namespace dockerfile app/Dockerfile
 
 # Kubernetesマニフェスト
-conftest test --policy policy/kubernetes k8s/
+conftest test --policy policy/kubernetes --namespace kubernetes k8s/
 ```
 
 ## このリポジトリの位置づけ
