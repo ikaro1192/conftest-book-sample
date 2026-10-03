@@ -1,0 +1,35 @@
+name: Publish policy bundle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "policy/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install conftest
+        run: |
+          curl -sL https://github.com/open-policy-agent/conftest/releases/download/v0.71.0/conftest_0.71.0_Linux_x86_64.tar.gz | tar xz conftest
+          sudo mv conftest /usr/local/bin/conftest
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push policy bundle
+        run: |
+          conftest push ghcr.io/${{ github.repository }}/policy:${{ github.sha }}
+          conftest push ghcr.io/${{ github.repository }}/policy:latest

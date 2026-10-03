@@ -68,6 +68,26 @@ conftest test --policy policy/dockerfile --namespace dockerfile app/Dockerfile
 conftest test --policy policy/kubernetes --namespace kubernetes k8s/
 ```
 
+## OCIレジストリでのポリシー配布
+
+`policy/`配下はGitHub Actions(`.github/workflows/policy-publish.yml`)によって、GitHub Container Registry(GHCR)にOPAバンドルとしてpushされる。`main`ブランチの`policy/**`が変更されたとき、またはワークフローの手動実行で動く。
+
+```bash
+# ワークフロー内で実行している内容(ローカルでも同様に実行できる)
+conftest push ghcr.io/ikaro1192/conftest-book-sample/policy:latest
+```
+
+他のリポジトリやCI環境からは、`conftest pull`でこのバンドルを取得して使う。
+
+```bash
+conftest pull ghcr.io/ikaro1192/conftest-book-sample/policy:latest
+conftest test --policy policy --namespace kubernetes k8s/
+```
+
+バージョンを固定して参照したい場合は、`:latest`の代わりにコミットSHAのタグ(`conftest push`で同時にpushされる)を指定する。
+
+GHCRのパッケージ可視性は、リンク先リポジトリの可視性を自動では継承しない。このリポジトリはprivateであり、個人アカウント配下で新規publishするパッケージのデフォルト可視性もprivateである。ただし、意図したとおりになっているかはGitHubのパッケージ設定画面(`https://github.com/users/ikaro1192/packages/container/package/conftest-book-sample%2Fpolicy`)で確認しておくこと。
+
 ## このリポジトリの位置づけ
 
 書籍リポジトリ(Zenn)からは git submodule として参照している。書籍本文のコードブロックはこのリポジトリのファイルを正とする。
