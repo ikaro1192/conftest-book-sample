@@ -33,7 +33,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-conftest
 
@@ -53,19 +53,19 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build
         run: docker build --platform linux/amd64 -t app:${{ github.sha }} app
 
       - if: github.event_name == 'push'
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ECR_PUSH_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - if: github.event_name == 'push'
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Push
         if: github.event_name == 'push'
@@ -82,16 +82,19 @@ jobs:
       group: deploy
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-conftest
 
       - name: Install kubectl and kustomize
         run: |
-          curl -sSfL -o "$RUNNER_TEMP/bin/kubectl" https://dl.k8s.io/release/v1.36.1/bin/linux/amd64/kubectl
-          chmod +x "$RUNNER_TEMP/bin/kubectl"
-          curl -sSfL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.2/kustomize_v5.8.2_linux_amd64.tar.gz \
-            | tar xz -C "$RUNNER_TEMP/bin" kustomize
+          cd "$RUNNER_TEMP"
+          curl -sSfL -o kubectl https://dl.k8s.io/release/v1.36.1/bin/linux/amd64/kubectl
+          echo "629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7  kubectl" | sha256sum -c -
+          install -m 0755 kubectl bin/kubectl
+          curl -sSfL -o kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.2/kustomize_v5.8.2_linux_amd64.tar.gz
+          echo "06af0a202c2b831207d0173f9c9cdb1b30abceca0747cb3fbb72792d26055c95  kustomize.tar.gz" | sha256sum -c -
+          tar xzf kustomize.tar.gz -C bin kustomize
 
       - name: Render manifests
         working-directory: deploy/dev

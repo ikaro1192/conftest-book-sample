@@ -4,14 +4,20 @@ inputs:
   version:
     description: Conftest version
     default: "0.71.0"
+  sha256:
+    description: SHA-256 checksum of conftest_<version>_Linux_x86_64.tar.gz
+    default: "765dfefdf0730693d7541ea0147e10d530a54ed257bbfec055ff34c837ffdf72"
 runs:
   using: composite
   steps:
     - shell: bash
       env:
         VERSION: ${{ inputs.version }}
+        SHA256: ${{ inputs.sha256 }}
       run: |
+        archive="$RUNNER_TEMP/conftest.tar.gz"
+        curl -sSfL -o "$archive" "https://github.com/open-policy-agent/conftest/releases/download/v${VERSION}/conftest_${VERSION}_Linux_x86_64.tar.gz"
+        echo "${SHA256}  ${archive}" | sha256sum -c -
         mkdir -p "$RUNNER_TEMP/bin"
-        curl -sSfL "https://github.com/open-policy-agent/conftest/releases/download/v${VERSION}/conftest_${VERSION}_Linux_x86_64.tar.gz" \
-          | tar xz -C "$RUNNER_TEMP/bin" conftest
+        tar xzf "$archive" -C "$RUNNER_TEMP/bin" conftest
         echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"

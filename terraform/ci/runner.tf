@@ -134,10 +134,23 @@ resource "aws_codebuild_webhook" "runner" {
   project_name = aws_codebuild_project.runner.name
   build_type   = "BUILD"
 
+  # filter_group の中のフィルタは、すべてを満たす場合に一致する
   filter_group {
     filter {
       type    = "EVENT"
       pattern = "WORKFLOW_JOB_QUEUED"
+    }
+
+    # ワークフローを起動したユーザーを限定する
+    filter {
+      type    = "ACTOR_ACCOUNT_ID"
+      pattern = "^${var.github_actor_id}$"
+    }
+
+    # ワークフローの名前を限定する
+    filter {
+      type    = "WORKFLOW_NAME"
+      pattern = "^App$"
     }
   }
 }

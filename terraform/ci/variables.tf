@@ -18,6 +18,11 @@ variable "github_oidc_sub_prefix" {
   type = string
 }
 
+# ランナーを起動できるGitHubのユーザーのID
+variable "github_actor_id" {
+  type = string
+}
+
 # GitHubと連携済みのCodeConnectionsの接続のARN
 variable "codeconnections_arn" {
   type = string

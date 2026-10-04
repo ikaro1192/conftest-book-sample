@@ -7,7 +7,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 data "aws_iam_policy_document" "github_assume" {
   for_each = {
     plan     = ["${var.github_oidc_sub_prefix}:pull_request"]
-    apply    = ["${var.github_oidc_sub_prefix}:ref:refs/heads/main"]
+    apply    = ["${var.github_oidc_sub_prefix}:environment:production"]
     ecr_push = ["${var.github_oidc_sub_prefix}:ref:refs/heads/main"]
   }
 
@@ -59,7 +59,7 @@ resource "aws_iam_role_policy" "plan_state_lock" {
   policy = data.aws_iam_policy_document.plan_state_lock.json
 }
 
-# mainブランチでterraform applyを実行するロール
+# Environment production のジョブでterraform applyを実行するロール
 resource "aws_iam_role" "apply" {
   name               = "${local.name_prefix}-github-apply"
   assume_role_policy = data.aws_iam_policy_document.github_assume["apply"].json
