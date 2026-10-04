@@ -5,3 +5,5 @@ allowlist:
   dockerfile_base_image_repositories:
     - public.ecr.aws/docker/library/golang
     - gcr.io/distroless/static-debian12
+  kubernetes_irsa_role_arn_prefixes:
+    - arn:aws:iam::123456789012:role/conftest-book-dev-

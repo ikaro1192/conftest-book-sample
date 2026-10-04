@@ -11,7 +11,7 @@
 │   ├── main_test.go
 │   └── Dockerfile          # distroless nonrootによるマルチステージビルド
 ├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM・ECRリポジトリ
-├── k8s/                    # アプリケーションのDeployment・Service
+├── k8s/                    # アプリケーションのDeployment・Service・ServiceAccountとkustomization.yaml
 ├── data/
 │   └── allowlist.yaml      # ポリシーが参照する許可リスト(--dataで読み込む)
 ├── testdata/
@@ -70,7 +70,10 @@ conftest test --policy policy/terraform --namespace terraform --data data testda
 conftest test --policy policy/dockerfile --namespace dockerfile --data data app/Dockerfile
 
 # Kubernetesマニフェスト
-conftest test --policy policy/kubernetes --namespace kubernetes k8s/
+conftest test --policy policy/kubernetes --namespace kubernetes --data data k8s/
+
+# Kustomizeで生成したマニフェスト
+kubectl kustomize k8s | conftest test --policy policy/kubernetes --namespace kubernetes --data data -
 ```
 
 ## OCIレジストリでのポリシー配布

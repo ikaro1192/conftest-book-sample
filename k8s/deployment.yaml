@@ -14,11 +14,18 @@ spec:
       labels:
         app: conftest-book-app
     spec:
+      serviceAccountName: conftest-book-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
       containers:
         - name: app
-          image: ghcr.io/example/conftest-book-app:v0.1.0
+          image: 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/conftest-book-dev-app:v0.1.0
           ports:
             - containerPort: 8080
+          securityContext:
+            readOnlyRootFilesystem: true
           resources:
             requests:
               cpu: "100m"
