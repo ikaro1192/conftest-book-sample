@@ -13,3 +13,7 @@ output "cluster_certificate_authority" {
 output "node_group_name" {
   value = aws_eks_node_group.default.node_group_name
 }
+
+output "ecr_repository_url" {
+  value = aws_ecr_repository.app.repository_url
+}

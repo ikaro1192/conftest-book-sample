@@ -1,0 +1,4 @@
+allowlist:
+  eks_node_instance_types:
+    - t4g.medium
+    - t4g.large
