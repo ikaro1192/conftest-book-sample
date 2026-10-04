@@ -3,6 +3,7 @@ resource "aws_kms_key" "eks" {
   enable_key_rotation = true
 }
 
+# Kubernetes APIのエンドポイントは非公開とする
 resource "aws_eks_cluster" "main" {
   name     = local.name_prefix
   role_arn = aws_iam_role.eks_cluster.arn
