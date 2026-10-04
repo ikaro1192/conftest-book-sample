@@ -1,5 +1,5 @@
 # ---- build stage ----
-FROM --platform=$BUILDPLATFORM golang:latest AS build
+FROM --platform=$BUILDPLATFORM public.ecr.aws/docker/library/golang:1.23 AS build
 
 ARG TARGETOS TARGETARCH
 

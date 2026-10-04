@@ -13,7 +13,7 @@ resource "aws_eks_cluster" "main" {
       for k, v in local.subnets : aws_subnet.this[k].id
     ]
     endpoint_private_access = true
-    endpoint_public_access  = true
+    endpoint_public_access  = false
     security_group_ids      = [aws_security_group.node.id]
   }
 
