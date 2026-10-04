@@ -140,11 +140,11 @@ CIでは、どちらも実行後に`git diff --exit-code`で差分が無いこ�
 conftest push --policy policy ghcr.io/<owner>/conftest-book-sample/policy:<コミットのSHA>
 ```
 
-他のリポジトリからは、ダイジェストで固定して取得する。取得の前に、古いファイルが残らないようにディレクトリを削除する。
+他のリポジトリからは、ダイジェストで固定して取得する。GHCRのURLには`oci://`を付ける。付けないと、ローカルのファイルのパスとして扱われる。privateのパッケージの取得には、`read:packages`の権限を持つトークンで`docker login ghcr.io`しておく。取得の前に、古いファイルが残らないようにディレクトリを削除する。
 
 ```bash
 rm -rf vendor
-conftest pull --policy vendor ghcr.io/<owner>/conftest-book-sample/policy:<コミットのSHA>@sha256:<ダイジェスト>
+conftest pull --policy vendor oci://ghcr.io/<owner>/conftest-book-sample/policy:<コミットのSHA>@sha256:<ダイジェスト>
 conftest test --policy vendor --namespace kubernetes k8s/
 ```
 

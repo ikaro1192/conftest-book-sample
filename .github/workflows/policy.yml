@@ -86,4 +86,4 @@ jobs:
           ref="ghcr.io/${GITHUB_REPOSITORY,,}/policy:${GITHUB_SHA}"
           conftest push --policy policy "$ref" 2>&1 | tee push.log
           digest=$(sed -n 's/.*pushed bundle with digest: //p' push.log)
-          echo "${ref}@${digest}" >> "$GITHUB_STEP_SUMMARY"
+          echo "oci://${ref}@${digest}" >> "$GITHUB_STEP_SUMMARY"
