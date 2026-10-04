@@ -65,7 +65,7 @@ AWSアカウントを用意しない場合は、`testdata/tfplan.json`・`testda
 conftest test --policy policy/terraform --namespace terraform --data data testdata/tfplan.json
 
 # Dockerfile
-conftest test --policy policy/dockerfile --namespace dockerfile app/Dockerfile
+conftest test --policy policy/dockerfile --namespace dockerfile --data data app/Dockerfile
 
 # Kubernetesマニフェスト
 conftest test --policy policy/kubernetes --namespace kubernetes k8s/
