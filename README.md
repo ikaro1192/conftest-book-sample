@@ -12,8 +12,10 @@
 │   └── Dockerfile          # distroless nonrootによるマルチステージビルド
 ├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM・ECRリポジトリ
 ├── k8s/                    # アプリケーションのDeployment・Service・ServiceAccountとkustomization.yaml
+├── conftest.toml           # --policy policy と --data data の指定
 ├── data/
-│   └── allowlist.yaml      # ポリシーが参照する許可リスト(--dataで読み込む)
+│   ├── allowlist.yaml      # ポリシーが参照する許可リスト
+│   └── exceptions.yaml     # Conftestのexceptionルールが参照する例外の一覧
 ├── testdata/
 │   ├── tfplan.json         # AWSアカウント不要で試せるterraform plan結果(規約に準拠)
 │   ├── tfplan_bad.json     # 同上(規約違反を含む構成)
@@ -22,7 +24,9 @@
 └── policy/                 # Conftest/Regoポリシー(対象ごとにディレクトリ・パッケージを分割)
     ├── terraform/          # package terraform
     ├── dockerfile/         # package dockerfile
-    └── kubernetes/         # package kubernetes
+    ├── kubernetes/         # package kubernetes(exception.rego に例外のルール)
+    ├── kubernetes_combined/ # package kubernetes_combined(--combine で複数ファイルをまとめて検査)
+    └── lib/                # package lib.image(共通の関数。denyを持たない)
 ```
 
 対象ごとにパッケージ名(namespace)を分けているのは、`opa test policy/`のようにポリシー全体を一括テストしたときに、異なる対象向けのルールが同じ`deny`集合へ混ざり込むのを避けるためである。
@@ -60,21 +64,26 @@ AWSアカウントを用意しない場合は、`testdata/`のplan結果をそ�
 
 ## Conftestでのポリシー検査
 
-ポリシーをパッケージごとに分けているため、`--namespace`で対象を明示する。
+ポリシーをパッケージごとに分けているため、`--namespace`で対象を明示する。`--policy policy`と`--data data`は`conftest.toml`に書いてある。`policy/lib/`の共通の関数を読み込むため、`--policy`には`policy/`全体を指定する。
 
 ```bash
 # Terraform plan結果
-conftest test --policy policy/terraform --namespace terraform --data data testdata/tfplan.json
+conftest test --namespace terraform testdata/tfplan.json
 
 # Dockerfile
-conftest test --policy policy/dockerfile --namespace dockerfile --data data app/Dockerfile
+conftest test --namespace dockerfile app/Dockerfile
 
 # Kubernetesマニフェスト
-conftest test --policy policy/kubernetes --namespace kubernetes --data data k8s/
+conftest test --namespace kubernetes k8s/
+
+# Kubernetesマニフェストの組み合わせ(Serviceのselectorなど)
+conftest test --namespace kubernetes_combined --combine k8s/
 
 # Kustomizeで生成したマニフェスト
-kubectl kustomize k8s | conftest test --policy policy/kubernetes --namespace kubernetes --data data -
+kubectl kustomize k8s | conftest test --namespace kubernetes -
 ```
+
+コマンドラインで`--data`を指定すると、`conftest.toml`の`data`は使われない。ポリシーが参照するデータは`data/`に置く。
 
 ## OCIレジストリでのポリシー配布
 

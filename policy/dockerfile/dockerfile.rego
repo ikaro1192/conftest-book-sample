@@ -1,5 +1,7 @@
 package dockerfile
 
+import data.lib.image
+
 is_dockerfile if {
 	some cmd in input
 	lower(cmd.Cmd) == "from"
@@ -18,66 +20,29 @@ stage_names contains name if {
 	name := cmd.Value[2]
 }
 
-base_images contains image if {
+base_images contains ref if {
 	some cmd in from_instructions
-	image := cmd.Value[0]
-	not image in stage_names
-	image != "scratch"
+	ref := cmd.Value[0]
+	not ref in stage_names
+	ref != "scratch"
 }
 
 deny contains msg if {
-	some image in base_images
-	not pinned(image)
-	msg := sprintf("base image %q must not use the \"latest\" tag", [image])
-}
-
-pinned(image) if {
-	image_ref(image).digest != ""
-}
-
-pinned(image) if {
-	tag := image_ref(image).tag
-	tag != ""
-	tag != "latest"
-}
-
-image_ref(image) := {"name": m[1], "tag": m[2], "digest": m[3]} if {
-	m := regex.find_all_string_submatch_n(`^(.+?)(?::([^:/]+))?(?:@(.+))?$`, image, 1)[0]
+	some ref in base_images
+	not image.pinned(ref)
+	msg := sprintf("base image %q must not use the \"latest\" tag", [ref])
 }
 
 deny contains msg if {
-	some image in base_images
-	repository := image_repository(image)
+	some ref in base_images
+	repository := image.repository(ref)
 	not allowed_repository(repository)
-	msg := sprintf("base image %q (repository %q) is not in the allowlist", [image, repository])
+	msg := sprintf("base image %q (repository %q) is not in the allowlist", [ref, repository])
 }
 
 allowed_repository(repository) if {
 	repository in data.allowlist.dockerfile_base_image_repositories
 }
-
-image_repository(image) := name if {
-	name := image_ref(image).name
-	contains(name, "/")
-	registry_host(split(name, "/")[0])
-}
-
-image_repository(image) := concat("/", ["docker.io", name]) if {
-	name := image_ref(image).name
-	contains(name, "/")
-	not registry_host(split(name, "/")[0])
-}
-
-image_repository(image) := concat("/", ["docker.io/library", name]) if {
-	name := image_ref(image).name
-	not contains(name, "/")
-}
-
-registry_host(s) if contains(s, ".")
-
-registry_host(s) if contains(s, ":")
-
-registry_host("localhost")
 
 final_stage := max({cmd.Stage | some cmd in from_instructions})
 
