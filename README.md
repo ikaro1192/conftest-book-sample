@@ -10,10 +10,13 @@
 │   ├── main.go
 │   ├── main_test.go
 │   └── Dockerfile          # distroless nonrootによるマルチステージビルド
-├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM
+├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM・ECRリポジトリ
 ├── k8s/                    # アプリケーションのDeployment・Service
+├── data/
+│   └── allowlist.yaml      # ポリシーが参照する許可リスト(--dataで読み込む)
 ├── testdata/
-│   └── tfplan.json         # AWSアカウント不要で試せるterraform plan結果のサンプル
+│   ├── tfplan.json         # AWSアカウント不要で試せるterraform plan結果(規約に準拠)
+│   └── tfplan_bad.json     # 同上(規約違反を含む構成)
 └── policy/                 # Conftest/Regoポリシー(対象ごとにディレクトリ・パッケージを分割)
     ├── terraform/          # package terraform
     ├── dockerfile/         # package dockerfile
@@ -42,7 +45,7 @@ opa test policy/ -v
 
 ## Terraformの検証
 
-実際のAWSアカウントで試す場合は、S3バックエンド用のバケットを用意した上で、通常のTerraformワークフローを実行する。
+実際のAWSアカウントで試す場合は、S3バックエンド用のバケットを用意した上で、通常のTerraformワークフローを実行する。バケットを用意しない場合は、`terraform/backend_override.tf`に`terraform { backend "local" {} }`を書けばローカルのstateで実行できる(`*_override.tf`はGit管理対象外)。
 
 ```bash
 cd terraform
@@ -51,7 +54,7 @@ terraform plan -out=tfplan
 terraform show -json tfplan > tfplan.json
 ```
 
-AWSアカウントを用意しない場合は、`testdata/tfplan.json`をそのまま使える。
+AWSアカウントを用意しない場合は、`testdata/tfplan.json`・`testdata/tfplan_bad.json`をそのまま使える。
 
 ## Conftestでのポリシー検査
 
@@ -59,7 +62,7 @@ AWSアカウントを用意しない場合は、`testdata/tfplan.json`をその�
 
 ```bash
 # Terraform plan結果
-conftest test --policy policy/terraform --namespace terraform testdata/tfplan.json
+conftest test --policy policy/terraform --namespace terraform --data data testdata/tfplan.json
 
 # Dockerfile
 conftest test --policy policy/dockerfile --namespace dockerfile app/Dockerfile
