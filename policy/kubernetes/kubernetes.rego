@@ -57,7 +57,10 @@ deny contains msg if {
 deny contains msg if {
 	some container in containers
 	not image.pinned(container.image)
-	msg := sprintf("%s: container %q image %q must not use the \"latest\" tag", [resource_id, container.name, container.image])
+	msg := sprintf(
+		"%s: container %q image %q must not use the \"latest\" tag",
+		[resource_id, container.name, container.image],
+	)
 }
 
 deny contains msg if {
@@ -78,8 +81,7 @@ deny_read_only_root_filesystem contains msg if {
 }
 
 deny contains msg if {
-	spec := pod_spec
-	not dedicated_service_account(spec)
+	not dedicated_service_account(pod_spec)
 	msg := sprintf("%s: pod must not use the default ServiceAccount", [resource_id])
 }
 

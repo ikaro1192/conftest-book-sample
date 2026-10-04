@@ -11,7 +11,12 @@
 │   ├── main_test.go
 │   └── Dockerfile          # distroless nonrootによるマルチステージビルド
 ├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM・ECRリポジトリ
+│   └── ci/                 # GitHub ActionsのOIDCプロバイダ・IAMロール・CodeBuildのランナー
 ├── k8s/                    # アプリケーションのDeployment・Service・ServiceAccountとkustomization.yaml
+├── deploy/dev/             # デプロイ用のKustomizeのオーバーレイ(イメージはCIで置き換える)
+├── .github/                # GitHub Actionsのワークフロー(terraform/app/policy)
+├── .regal/config.yaml      # Regalの設定
+├── .pre-commit-config.yaml # pre-commitの設定
 ├── conftest.toml           # --policy policy と --data data の指定
 ├── data/
 │   ├── allowlist.yaml      # ポリシーが参照する許可リスト
@@ -82,6 +87,36 @@ kubectl kustomize k8s | conftest test --namespace kubernetes -
 ```
 
 コマンドラインで`--data`を指定すると、`conftest.toml`の`data`は使われない。ポリシーが参照するデータは`data/`に置く。
+
+## CI/CD
+
+`.github/workflows/`の三つのワークフローで、Conftestの検査をCI/CDに組み込んでいる。
+
+| ワークフロー | Pull Request | mainブランチ |
+| --- | --- | --- |
+| `terraform.yml` | plan、検査、結果をコメント | plan、検査、apply |
+| `app.yml` | Dockerfileとマニフェストの検査、ビルド | 検査、ECRへのpush、VPC内のCodeBuildランナーからデプロイ |
+| `policy.yml` | `opa fmt`・`opa check --strict`・`opa test`・`regal lint` | 同左 |
+
+AWSへの認証はGitHub ActionsのOIDCトークンで行う。必要なIAMロールとランナーは`terraform/ci/`にあり、手元から適用する。
+
+```bash
+terraform -chdir=terraform/ci init -backend-config="bucket=<stateのバケット>"
+terraform -chdir=terraform/ci apply \
+  -var="github_repository=<owner>/conftest-book-sample" \
+  -var="github_oidc_sub_prefix=$(gh api repos/<owner>/conftest-book-sample/actions/oidc/customization/sub --jq .sub_claim_prefix)" \
+  -var="codeconnections_arn=<CodeConnectionsの接続のARN>" \
+  -var="tfstate_bucket=<stateのバケット>"
+```
+
+ワークフローは、リポジトリの変数`TFSTATE_BUCKET`・`AWS_PLAN_ROLE_ARN`・`AWS_APPLY_ROLE_ARN`・`AWS_ECR_PUSH_ROLE_ARN`・`ECR_REPOSITORY_URL`を参照する。
+
+手元では、pre-commitで同じ検査を実行できる。
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
 
 ## OCIレジストリでのポリシー配布
 

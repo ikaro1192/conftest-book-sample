@@ -1,0 +1,100 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths:
+      - "terraform/*.tf"
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - ".github/workflows/terraform.yml"
+  push:
+    branches: [main]
+    paths:
+      - "terraform/*.tf"
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - ".github/workflows/terraform.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-1
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.1
+          terraform_wrapper: false
+
+      - uses: ./.github/actions/setup-conftest
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Plan
+        run: |
+          terraform -chdir=terraform init -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}"
+          terraform -chdir=terraform plan -out=tfplan.binary
+          terraform -chdir=terraform show -json tfplan.binary > tfplan.json
+
+      - name: Conftest
+        id: conftest
+        run: conftest test --namespace terraform --output json tfplan.json > conftest-result.json
+
+      - name: Comment
+        if: ${{ !cancelled() && steps.conftest.outcome != 'skipped' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: .github/scripts/conftest-comment.sh terraform conftest-result.json
+
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: terraform-apply
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.15.1
+          terraform_wrapper: false
+
+      - uses: ./.github/actions/setup-conftest
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Plan
+        run: |
+          terraform -chdir=terraform init -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}"
+          terraform -chdir=terraform plan -out=tfplan.binary
+          terraform -chdir=terraform show -json tfplan.binary > tfplan.json
+
+      - name: Conftest
+        run: conftest test --namespace terraform --output github tfplan.json
+
+      - name: Apply
+        run: terraform -chdir=terraform apply tfplan.binary
