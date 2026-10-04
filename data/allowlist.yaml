@@ -2,3 +2,6 @@ allowlist:
   eks_node_instance_types:
     - t4g.medium
     - t4g.large
+  dockerfile_base_image_repositories:
+    - public.ecr.aws/docker/library/golang
+    - gcr.io/distroless/static-debian12

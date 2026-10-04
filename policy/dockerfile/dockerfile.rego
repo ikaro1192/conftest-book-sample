@@ -1,19 +1,108 @@
 package dockerfile
 
-deny contains msg if {
-	cmd := input[_]
+is_dockerfile if {
+	some cmd in input
 	lower(cmd.Cmd) == "from"
+}
+
+from_instructions contains cmd if {
+	is_dockerfile
+	some cmd in input
+	lower(cmd.Cmd) == "from"
+}
+
+stage_names contains name if {
+	some cmd in from_instructions
+	count(cmd.Value) == 3
+	lower(cmd.Value[1]) == "as"
+	name := cmd.Value[2]
+}
+
+base_images contains image if {
+	some cmd in from_instructions
 	image := cmd.Value[0]
-	endswith(image, ":latest")
+	not image in stage_names
+	image != "scratch"
+}
+
+deny contains msg if {
+	some image in base_images
+	not pinned(image)
 	msg := sprintf("base image %q must not use the \"latest\" tag", [image])
 }
 
+pinned(image) if {
+	image_ref(image).digest != ""
+}
+
+pinned(image) if {
+	tag := image_ref(image).tag
+	tag != ""
+	tag != "latest"
+}
+
+image_ref(image) := {"name": m[1], "tag": m[2], "digest": m[3]} if {
+	m := regex.find_all_string_submatch_n(`^(.+?)(?::([^:/]+))?(?:@(.+))?$`, image, 1)[0]
+}
+
 deny contains msg if {
-	not user_set
+	some image in base_images
+	repository := image_repository(image)
+	not allowed_repository(repository)
+	msg := sprintf("base image %q (repository %q) is not in the allowlist", [image, repository])
+}
+
+allowed_repository(repository) if {
+	repository in data.allowlist.dockerfile_base_image_repositories
+}
+
+image_repository(image) := name if {
+	name := image_ref(image).name
+	contains(name, "/")
+	registry_host(split(name, "/")[0])
+}
+
+image_repository(image) := concat("/", ["docker.io", name]) if {
+	name := image_ref(image).name
+	contains(name, "/")
+	not registry_host(split(name, "/")[0])
+}
+
+image_repository(image) := concat("/", ["docker.io/library", name]) if {
+	name := image_ref(image).name
+	not contains(name, "/")
+}
+
+registry_host(s) if contains(s, ".")
+
+registry_host(s) if contains(s, ":")
+
+registry_host("localhost")
+
+final_stage := max({cmd.Stage | some cmd in from_instructions})
+
+final_stage_users := [user |
+	some cmd in input
+	cmd.Stage == final_stage
+	lower(cmd.Cmd) == "user"
+	user := cmd.Value[0]
+]
+
+deny contains msg if {
+	is_dockerfile
+	count(final_stage_users) == 0
 	msg := "Dockerfile must set a non-root USER"
 }
 
-user_set if {
-	cmd := input[_]
-	lower(cmd.Cmd) == "user"
+deny contains msg if {
+	user := final_stage_users[count(final_stage_users) - 1]
+	split(user, ":")[0] in {"root", "0"}
+	msg := sprintf("final stage must not run as root user %q", [user])
+}
+
+warn contains msg if {
+	is_dockerfile
+	some cmd in input
+	lower(cmd.Cmd) == "add"
+	msg := sprintf("use COPY instead of ADD: %s", [concat(" ", cmd.Value)])
 }
