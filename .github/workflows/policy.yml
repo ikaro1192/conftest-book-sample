@@ -5,6 +5,9 @@ on:
     paths:
       - "policy/**"
       - "data/**"
+      - "testdata/consumers/**"
+      - "scripts/**"
+      - "docs/policies.md"
       - ".regal/**"
       - ".github/workflows/policy.yml"
   push:
@@ -12,8 +15,12 @@ on:
     paths:
       - "policy/**"
       - "data/**"
+      - "testdata/consumers/**"
+      - "scripts/**"
+      - "docs/policies.md"
       - ".regal/**"
       - ".github/workflows/policy.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,6 +39,8 @@ jobs:
         with:
           version: 0.43.0
 
+      - uses: ./.github/actions/setup-conftest
+
       - name: Check formatting
         run: opa fmt --list --fail policy/
 
@@ -43,3 +52,38 @@ jobs:
 
       - name: Lint
         run: regal lint --format github policy/
+
+      - name: Regression test
+        run: |
+          scripts/regression.sh
+          git diff --exit-code testdata/consumers/
+
+      - name: Check generated docs
+        run: |
+          scripts/policy-docs.sh
+          git diff --exit-code docs/policies.md
+
+  publish:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-conftest
+
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Push policy bundle
+        shell: bash
+        run: |
+          ref="ghcr.io/${GITHUB_REPOSITORY,,}/policy:${GITHUB_SHA}"
+          conftest push --policy policy "$ref" 2>&1 | tee push.log
+          digest=$(sed -n 's/.*pushed bundle with digest: //p' push.log)
+          echo "${ref}@${digest}" >> "$GITHUB_STEP_SUMMARY"

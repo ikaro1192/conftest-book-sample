@@ -1,3 +1,6 @@
+# METADATA
+# title: Kubernetesマニフェストの組み合わせの規約
+# description: "--combine で一つにまとめた複数のドキュメントを検査する。"
 package kubernetes_combined
 
 is_combined_kubernetes if {
@@ -23,6 +26,12 @@ pod_template_labels contains labels if {
 	labels := object.get(r, ["spec", "template", "metadata", "labels"], {})
 }
 
+# METADATA
+# scope: rule
+# title: Serviceのselectorに一致するPodテンプレートを置く
+# description: Service の spec.selector のすべてのラベルを持つPodテンプレートが、同じ入力にある。
+# custom:
+#   remediation: selector を、接続先のPodテンプレートの labels に合わせる。
 deny contains msg if {
 	some r in resources
 	r.kind == "Service"

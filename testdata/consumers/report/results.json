@@ -1,0 +1,39 @@
+[
+  {
+    "filename": "Combined",
+    "namespace": "kubernetes_combined",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  },
+  {
+    "filename": "testdata/consumers/report/dockerfile/Dockerfile",
+    "namespace": "dockerfile",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  },
+  {
+    "filename": "testdata/consumers/report/kubernetes/cronjob.yaml",
+    "namespace": "kubernetes",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  },
+  {
+    "filename": "testdata/consumers/report/kubernetes/deployment.yaml",
+    "namespace": "kubernetes",
+    "failures": [],
+    "warnings": [],
+    "exceptions": [
+      "data.kubernetes.exception[_][_] == \"read_only_root_filesystem\""
+    ]
+  },
+  {
+    "filename": "testdata/consumers/report/kubernetes/serviceaccount.yaml",
+    "namespace": "kubernetes",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  }
+]

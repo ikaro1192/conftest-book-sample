@@ -1,0 +1,30 @@
+[
+  {
+    "filename": "Combined",
+    "namespace": "kubernetes_combined",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  },
+  {
+    "filename": "testdata/consumers/conftest-book-sample/dockerfile/Dockerfile",
+    "namespace": "dockerfile",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  },
+  {
+    "filename": "testdata/consumers/conftest-book-sample/kubernetes/manifests.yaml",
+    "namespace": "kubernetes",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  },
+  {
+    "filename": "testdata/consumers/conftest-book-sample/terraform/tfplan.json",
+    "namespace": "terraform",
+    "failures": [],
+    "warnings": [],
+    "exceptions": []
+  }
+]

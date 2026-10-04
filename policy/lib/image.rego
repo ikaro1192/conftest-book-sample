@@ -1,3 +1,6 @@
+# METADATA
+# title: イメージの参照に関する関数
+# description: dockerfile と kubernetes のパッケージが使う。deny を持たない。
 package lib.image
 
 parse(ref) := {"name": m[1], "tag": m[2], "digest": m[3]} if {

@@ -1,0 +1,7 @@
+exceptions:
+  kubernetes:
+    - resource: Deployment/legacy-report
+      rules:
+        - read_only_root_filesystem
+      reason: "レポートを/var/cache/reportに書き込む。書き込み先をemptyDirに移す改修が完了するまでの例外"
+      expires: "2100-12-31T23:59:59+09:00"

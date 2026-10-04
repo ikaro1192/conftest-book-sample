@@ -23,7 +23,12 @@
 │   ├── tfplan.json         # AWSアカウント不要で試せるterraform plan結果(規約に準拠)
 │   ├── tfplan_bad.json     # 同上(規約違反を含む構成)
 │   ├── tfplan_policy_unknown.json # IAMポリシーにクラスタのARNを埋め込んだ構成(policyがapplyまで決まらない)
-│   └── tfplan_policy_known.json   # 同上で、ARNをplan時点で決まる値から組み立てた構成
+│   ├── tfplan_policy_known.json   # 同上で、ARNをplan時点で決まる値から組み立てた構成
+│   └── consumers/          # ポリシーの利用者の構成ファイルと検査結果(回帰テスト用)
+├── scripts/
+│   ├── regression.sh       # testdata/consumers/ を検査し、results.json を書き出す
+│   └── policy-docs.sh      # METADATAアノテーションから docs/policies.md を生成する
+├── docs/policies.md        # ルールの一覧(生成物)
 └── policy/                 # Conftest/Regoポリシー(対象ごとにディレクトリ・パッケージを分割)
     ├── terraform/          # package terraform
     ├── dockerfile/         # package dockerfile
@@ -96,7 +101,7 @@ kubectl kustomize k8s | conftest test --namespace kubernetes -
 | --- | --- |
 | `terraform.yml` | `testdata/tfplan.json`を、変更したポリシーとデータで検査し、結果をPull Requestにコメントする。`terraform plan`は実行しない |
 | `app.yml` | Dockerfileと、`k8s/`からKustomizeで生成したマニフェストを検査し、結果をPull Requestにコメントする。検査を通ったらコンテナイメージをビルドする |
-| `policy.yml` | `opa fmt`・`opa check --strict`・`opa test`・`regal lint` |
+| `policy.yml` | `opa fmt`・`opa check --strict`・`opa test`・`regal lint`・回帰テスト・ドキュメントの確認。mainブランチではGHCRへのポリシーのpush |
 
 検査の結果は、ジョブのサマリーにも書く。forkからのPull Requestでは、コメントせずにサマリーにだけ書く。アクションはコミットのSHAで固定し、Dependabotで更新する。
 
@@ -107,25 +112,43 @@ pre-commit install
 pre-commit run --all-files
 ```
 
+## ポリシーの回帰テストとドキュメント
+
+`testdata/consumers/`には、ポリシーの利用者ごとの構成ファイル・データと、検査の結果(`results.json`)を置いている。ポリシーを変更したら、次のスクリプトで結果を書き出し、差分を確認する。
+
+```bash
+scripts/regression.sh
+git diff testdata/consumers/
+```
+
+ルールの一覧`docs/policies.md`は、各ルールの`# METADATA`アノテーションから生成する。
+
+```bash
+scripts/policy-docs.sh
+```
+
+CIでは、どちらも実行後に`git diff --exit-code`で差分が無いことを確かめる。
+
 ## OCIレジストリでのポリシー配布
 
-`policy/`配下はGitHub Actions(`.github/workflows/policy-publish.yml`)によって、GitHub Container Registry(GHCR)にOPAバンドルとしてpushされる。ワークフローを手動で実行したときだけ動く。
+`policy/`配下は、`.github/workflows/policy.yml`の`publish`ジョブによって、GitHub Container Registry(GHCR)にOPAバンドルとしてpushされる。mainブランチで`test`ジョブが成功したときに動く。タグはコミットのSHAであり、pushしたバンドルのダイジェストはジョブのサマリーに表示される。
+
+`conftest push`と`conftest pull`は`conftest.toml`の`policy`(配列)を読まないため、`--policy`を明示する。
 
 ```bash
-# ワークフロー内で実行している内容(ローカルでも同様に実行できる)
-conftest push ghcr.io/ikaro1192/conftest-book-sample/policy:latest
+# ワークフロー内で実行している内容
+conftest push --policy policy ghcr.io/<owner>/conftest-book-sample/policy:<コミットのSHA>
 ```
 
-他のリポジトリやCI環境からは、`conftest pull`でこのバンドルを取得して使う。
+他のリポジトリからは、ダイジェストで固定して取得する。取得の前に、古いファイルが残らないようにディレクトリを削除する。
 
 ```bash
-conftest pull ghcr.io/ikaro1192/conftest-book-sample/policy:latest
-conftest test --policy policy --namespace kubernetes k8s/
+rm -rf vendor
+conftest pull --policy vendor ghcr.io/<owner>/conftest-book-sample/policy:<コミットのSHA>@sha256:<ダイジェスト>
+conftest test --policy vendor --namespace kubernetes k8s/
 ```
 
-バージョンを固定して参照したい場合は、`:latest`の代わりにコミットSHAのタグ(`conftest push`で同時にpushされる)を指定する。
-
-GHCRのパッケージ可視性は、リンク先リポジトリの可視性を自動では継承しない。このリポジトリはprivateであり、個人アカウント配下で新規publishするパッケージのデフォルト可視性もprivateである。ただし、意図したとおりになっているかはGitHubのパッケージ設定画面(`https://github.com/users/ikaro1192/packages/container/package/conftest-book-sample%2Fpolicy`)で確認しておくこと。
+GHCRのパッケージ可視性は、パッケージの設定画面で確認する。privateのパッケージを他のリポジトリのワークフローから取得するには、パッケージの設定でそのリポジトリに読み取りの権限を与える。
 
 ## このリポジトリの位置づけ
 
