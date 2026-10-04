@@ -188,8 +188,7 @@ insufficient_replicas if {
 # description: Deployment の replicas を2以上にする。replicas を省略した場合は1として扱う。
 # custom:
 #   remediation: replicas に2以上の値を書く。
-#   enforce_in: v2.0.0
-warn contains msg if {
+deny contains msg if {
 	insufficient_replicas
 	msg := sprintf("%s: replicas must be at least 2", [resource_id])
 }

@@ -24,9 +24,7 @@
     "filename": "testdata/consumers/report/kubernetes/deployment.yaml",
     "namespace": "kubernetes",
     "failures": [],
-    "warnings": [
-      "Deployment/legacy-report: replicas must be at least 2"
-    ],
+    "warnings": [],
     "exceptions": [
       "data.kubernetes.exception[_][_] == \"read_only_root_filesystem\""
     ]

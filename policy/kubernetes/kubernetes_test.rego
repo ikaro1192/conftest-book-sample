@@ -22,7 +22,7 @@ deployment(pod_spec) := {
 	"apiVersion": "apps/v1",
 	"kind": "Deployment",
 	"metadata": {"name": "app"},
-	"spec": {"template": {"spec": pod_spec}},
+	"spec": {"replicas": 2, "template": {"spec": pod_spec}},
 }
 
 with_container(container) := object.union(compliant_pod_spec, {"containers": [container]})
@@ -138,12 +138,12 @@ test_non_kubernetes_input_is_ignored if {
 	count(deny) == 0 with input as {"resource_changes": []}
 }
 
-test_single_replica_is_warned if {
+test_single_replica_is_denied if {
 	d := object.union(deployment(compliant_pod_spec), {"spec": {"replicas": 1}})
-	warn == {"Deployment/app: replicas must be at least 2"} with input as d
+	"Deployment/app: replicas must be at least 2" in deny with input as d
 }
 
-test_two_replicas_are_not_warned if {
+test_two_replicas_are_allowed if {
 	d := object.union(deployment(compliant_pod_spec), {"spec": {"replicas": 2}})
-	count(warn) == 0 with input as d
+	count(deny) == 0 with input as d
 }
