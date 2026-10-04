@@ -29,6 +29,7 @@ with_container(container) := object.union(compliant_pod_spec, {"containers": [co
 
 test_compliant_deployment_is_allowed if {
 	count(deny) == 0 with input as deployment(compliant_pod_spec)
+	count(deny_read_only_root_filesystem) == 0 with input as deployment(compliant_pod_spec)
 }
 
 test_privileged_container_is_denied if {
@@ -76,7 +77,7 @@ test_init_container_is_checked if {
 	init := object.union(object.remove(compliant_container, ["securityContext"]), {"name": "init"})
 	spec := object.union(compliant_pod_spec, {"initContainers": [init]})
 
-	"Deployment/app: container \"init\" must set readOnlyRootFilesystem to true" in deny with input as deployment(spec)
+	"Deployment/app: container \"init\" must set readOnlyRootFilesystem to true" in deny_read_only_root_filesystem with input as deployment(spec)
 }
 
 test_default_service_account_is_denied if {

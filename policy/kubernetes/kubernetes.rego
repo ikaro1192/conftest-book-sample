@@ -1,5 +1,7 @@
 package kubernetes
 
+import data.lib.image
+
 is_kubernetes if {
 	is_string(input.apiVersion)
 	is_string(input.kind)
@@ -54,22 +56,8 @@ deny contains msg if {
 
 deny contains msg if {
 	some container in containers
-	not pinned(container.image)
+	not image.pinned(container.image)
 	msg := sprintf("%s: container %q image %q must not use the \"latest\" tag", [resource_id, container.name, container.image])
-}
-
-image_ref(image) := {"name": m[1], "tag": m[2], "digest": m[3]} if {
-	m := regex.find_all_string_submatch_n(`^(.+?)(?::([^:/]+))?(?:@(.+))?$`, image, 1)[0]
-}
-
-pinned(image) if {
-	image_ref(image).digest != ""
-}
-
-pinned(image) if {
-	tag := image_ref(image).tag
-	tag != ""
-	tag != "latest"
 }
 
 deny contains msg if {
@@ -83,7 +71,7 @@ run_as_non_root(container) if {
 	object.get(container, ["securityContext", "runAsNonRoot"], pod_default) == true
 }
 
-deny contains msg if {
+deny_read_only_root_filesystem contains msg if {
 	some container in containers
 	not container.securityContext.readOnlyRootFilesystem == true
 	msg := sprintf("%s: container %q must set readOnlyRootFilesystem to true", [resource_id, container.name])
