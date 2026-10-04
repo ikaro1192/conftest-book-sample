@@ -17,6 +17,11 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [aws_security_group.node.id]
   }
 
+  access_config {
+    authentication_mode                         = "API"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
   encryption_config {
     provider {
       key_arn = aws_kms_key.eks.arn

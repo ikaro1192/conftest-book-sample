@@ -1,0 +1,111 @@
+name: App
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "k8s/**"
+      - "deploy/**"
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - ".github/workflows/app.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "k8s/**"
+      - "deploy/**"
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - ".github/workflows/app.yml"
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-1
+  # k8s/deployment.yaml に書いたイメージの名前
+  BASE_IMAGE: 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/conftest-book-dev-app
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-conftest
+
+      - name: Conftest (Dockerfile)
+        run: conftest test --namespace dockerfile --output github app/Dockerfile
+
+      - name: Conftest (Kubernetes)
+        run: |
+          kubectl kustomize deploy/dev > manifests.yaml
+          conftest test --namespace kubernetes --output github manifests.yaml
+          conftest test --namespace kubernetes_combined --combine --output github manifests.yaml
+
+  image:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build
+        run: docker build --platform linux/amd64 -t app:${{ github.sha }} app
+
+      - if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ECR_PUSH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - if: github.event_name == 'push'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push
+        if: github.event_name == 'push'
+        run: |
+          docker tag app:${{ github.sha }} ${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}
+          docker push ${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}
+
+  deploy:
+    needs: image
+    if: github.event_name == 'push'
+    # terraform/ci で作成したCodeBuildのプロジェクトで、VPC内のランナーを起動する
+    runs-on: codebuild-conftest-book-dev-runner-${{ github.run_id }}-${{ github.run_attempt }}
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-conftest
+
+      - name: Install kubectl and kustomize
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/bin/kubectl" https://dl.k8s.io/release/v1.36.1/bin/linux/amd64/kubectl
+          chmod +x "$RUNNER_TEMP/bin/kubectl"
+          curl -sSfL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.2/kustomize_v5.8.2_linux_amd64.tar.gz \
+            | tar xz -C "$RUNNER_TEMP/bin" kustomize
+
+      - name: Render manifests
+        working-directory: deploy/dev
+        run: |
+          kustomize edit set image "$BASE_IMAGE=${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}"
+          kustomize build . > "$RUNNER_TEMP/manifests.yaml"
+
+      - name: Conftest
+        run: |
+          conftest test --namespace kubernetes --output github "$RUNNER_TEMP/manifests.yaml"
+          conftest test --namespace kubernetes_combined --combine --output github "$RUNNER_TEMP/manifests.yaml"
+
+      - name: Deploy
+        run: |
+          aws eks update-kubeconfig --region "$AWS_REGION" --name conftest-book-dev
+          kubectl apply -f "$RUNNER_TEMP/manifests.yaml"
+          kubectl rollout status deployment/conftest-book-app --timeout=5m

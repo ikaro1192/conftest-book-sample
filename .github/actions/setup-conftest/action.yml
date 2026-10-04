@@ -1,0 +1,17 @@
+name: Setup Conftest
+description: Install a pinned version of Conftest
+inputs:
+  version:
+    description: Conftest version
+    default: "0.71.0"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/bin"
+        curl -sSfL "https://github.com/open-policy-agent/conftest/releases/download/v${VERSION}/conftest_${VERSION}_Linux_x86_64.tar.gz" \
+          | tar xz -C "$RUNNER_TEMP/bin" conftest
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"

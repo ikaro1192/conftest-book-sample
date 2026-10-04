@@ -1,0 +1,31 @@
+rules:
+  idiomatic:
+    # policy/lib/image.rego は package lib.image とし、ディレクトリを policy/lib/image/ にしていない
+    directory-package-mismatch:
+      level: ignore
+    # Conftestは --namespace でパッケージを選ぶため、エントリポイントを定めない
+    no-defined-entrypoint:
+      level: ignore
+    # 本書は文字列の組み立てに sprintf を使う
+    prefer-string-interpolation:
+      level: ignore
+  imports:
+    # data/ のファイルは、Regalの解析の対象に含まれない
+    unresolved-reference:
+      level: error
+      except-paths:
+        - data.allowlist.*
+        - data.exceptions.*
+  style:
+    line-length:
+      level: error
+      ignore:
+        files:
+          - "*_test.rego"
+    # 規約ごとに、deny の本体と補助のルールを並べて書く
+    messy-rule:
+      level: ignore
+  testing:
+    # 本書はテストを対象と同じパッケージに置く
+    test-outside-test-package:
+      level: ignore
