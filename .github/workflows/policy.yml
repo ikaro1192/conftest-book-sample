@@ -12,6 +12,7 @@ on:
       - ".github/workflows/policy.yml"
   push:
     branches: [main]
+    tags: ["v*"]
     paths:
       - "policy/**"
       - "data/**"
@@ -65,7 +66,9 @@ jobs:
 
   publish:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,7 +86,9 @@ jobs:
       - name: Push policy bundle
         shell: bash
         run: |
-          ref="ghcr.io/${GITHUB_REPOSITORY,,}/policy:${GITHUB_SHA}"
+          # Gitのタグのpushではタグの名前を、mainブランチではコミットのSHAをタグにする
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag=$GITHUB_REF_NAME; else tag=$GITHUB_SHA; fi
+          ref="ghcr.io/${GITHUB_REPOSITORY,,}/policy:${tag}"
           conftest push --policy policy "$ref" 2>&1 | tee push.log
           digest=$(sed -n 's/.*pushed bundle with digest: //p' push.log)
           echo "oci://${ref}@${digest}" >> "$GITHUB_STEP_SUMMARY"
