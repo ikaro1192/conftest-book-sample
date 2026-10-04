@@ -150,6 +150,17 @@ Kubernetesマニフェストの一つのドキュメントを検査する。--co
 | 修正方法 | type を ClusterIP にする。外部に公開する経路は、Terraform で管理する。 |
 | 参考 | - |
 
+### Deploymentのreplicasを2以上にする
+
+| 項目 | 内容 |
+| --- | --- |
+| ルール | `warn` |
+| ファイル | `policy/kubernetes/kubernetes.rego` |
+| 説明 | Deployment の replicas を2以上にする。replicas を省略した場合は1として扱う。 |
+| 修正方法 | replicas に2以上の値を書く。 |
+| denyに変えるバージョン | v2.0.0 |
+| 参考 | - |
+
 ## `kubernetes_combined`: Kubernetesマニフェストの組み合わせの規約
 
 --combine で一つにまとめた複数のドキュメントを検査する。

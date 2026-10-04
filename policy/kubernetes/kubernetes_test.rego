@@ -137,3 +137,13 @@ test_non_kubernetes_input_is_ignored if {
 	count(deny) == 0 with input as [{"Cmd": "from", "Stage": 0, "Value": ["golang:1.27"]}]
 	count(deny) == 0 with input as {"resource_changes": []}
 }
+
+test_single_replica_is_warned if {
+	d := object.union(deployment(compliant_pod_spec), {"spec": {"replicas": 1}})
+	warn == {"Deployment/app: replicas must be at least 2"} with input as d
+}
+
+test_two_replicas_are_not_warned if {
+	d := object.union(deployment(compliant_pod_spec), {"spec": {"replicas": 2}})
+	count(warn) == 0 with input as d
+}

@@ -28,6 +28,7 @@ cd "$(dirname "$0")/.."
         "| ファイル | `\(.location.file)` |",
         "| 説明 | \(.annotations.description) |",
         "| 修正方法 | \(.annotations.custom.remediation // "-") |",
+        (.annotations.custom.enforce_in // empty | "| denyに変えるバージョン | \(.) |"),
         "| 参考 | \([.annotations.related_resources[]?.ref] | join("<br>") | if . == "" then "-" else . end) |",
         "")
   '

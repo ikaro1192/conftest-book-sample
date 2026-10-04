@@ -175,3 +175,21 @@ deny contains msg if {
 	input.spec.type == "LoadBalancer"
 	msg := sprintf("%s: Service type LoadBalancer is not allowed", [resource_id])
 }
+
+insufficient_replicas if {
+	is_kubernetes
+	input.kind == "Deployment"
+	object.get(input, ["spec", "replicas"], 1) < 2
+}
+
+# METADATA
+# scope: rule
+# title: Deploymentのreplicasを2以上にする
+# description: Deployment の replicas を2以上にする。replicas を省略した場合は1として扱う。
+# custom:
+#   remediation: replicas に2以上の値を書く。
+#   enforce_in: v2.0.0
+warn contains msg if {
+	insufficient_replicas
+	msg := sprintf("%s: replicas must be at least 2", [resource_id])
+}
