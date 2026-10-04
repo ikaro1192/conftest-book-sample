@@ -13,6 +13,11 @@ variable "github_repository" {
   type = string
 }
 
+# OIDCトークンのsubの接頭辞(repo:<owner>@<owner_id>/<repo>@<repo_id>)
+variable "github_oidc_sub_prefix" {
+  type = string
+}
+
 # GitHubと連携済みのCodeConnectionsの接続のARN
 variable "codeconnections_arn" {
   type = string

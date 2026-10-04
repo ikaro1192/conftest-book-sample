@@ -6,9 +6,9 @@ resource "aws_iam_openid_connect_provider" "github" {
 # 引き受けられるリポジトリとイベントをsubで限定する信頼ポリシー
 data "aws_iam_policy_document" "github_assume" {
   for_each = {
-    plan     = ["repo:${var.github_repository}:pull_request"]
-    apply    = ["repo:${var.github_repository}:ref:refs/heads/main"]
-    ecr_push = ["repo:${var.github_repository}:ref:refs/heads/main"]
+    plan     = ["${var.github_oidc_sub_prefix}:pull_request"]
+    apply    = ["${var.github_oidc_sub_prefix}:ref:refs/heads/main"]
+    ecr_push = ["${var.github_oidc_sub_prefix}:ref:refs/heads/main"]
   }
 
   statement {
