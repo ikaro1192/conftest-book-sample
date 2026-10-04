@@ -131,7 +131,14 @@ CIでは、どちらも実行後に`git diff --exit-code`で差分が無いこ�
 
 ## OCIレジストリでのポリシー配布
 
-`policy/`配下は、`.github/workflows/policy.yml`の`publish`ジョブによって、GitHub Container Registry(GHCR)にOPAバンドルとしてpushされる。mainブランチで`test`ジョブが成功したときに動く。タグはコミットのSHAであり、pushしたバンドルのダイジェストはジョブのサマリーに表示される。
+`policy/`配下は、`.github/workflows/policy.yml`の`publish`ジョブによって、GitHub Container Registry(GHCR)にOPAバンドルとしてpushされる。`test`ジョブが成功したときに動く。pushしたバンドルのダイジェストは、ジョブのサマリーに表示される。
+
+| きっかけ | GHCRのタグ |
+| --- | --- |
+| mainブランチへのpush | コミットのSHA |
+| `v*`のGitのタグのpush | Gitのタグの名前(`v2.0.0`など) |
+
+ライブラリのバージョンはセマンティックバージョニングに従う。変更の内容は`CHANGELOG.md`に書く。
 
 `conftest push`と`conftest pull`は`conftest.toml`の`policy`(配列)を読まないため、`--policy`を明示する。
 
