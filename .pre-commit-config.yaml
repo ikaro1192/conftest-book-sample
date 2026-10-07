@@ -1,0 +1,34 @@
+repos:
+  - repo: local
+    hooks:
+      - id: opa-fmt
+        name: opa fmt
+        entry: opa fmt --list --fail
+        language: system
+        files: \.rego$
+
+      - id: opa-test
+        name: opa test
+        entry: opa test policy/
+        language: system
+        files: ^(policy|data)/
+        pass_filenames: false
+
+      - id: conftest-dockerfile
+        name: conftest (Dockerfile)
+        entry: conftest test --namespace dockerfile
+        language: system
+        files: (^|/)Dockerfile$
+
+      - id: conftest-kubernetes
+        name: conftest (Kubernetes)
+        entry: conftest test --namespace kubernetes
+        language: system
+        files: ^k8s/.*\.ya?ml$
+
+      - id: conftest-kubernetes-combined
+        name: conftest (Kubernetes, combined)
+        entry: conftest test --namespace kubernetes_combined --combine k8s/
+        language: system
+        files: ^k8s/.*\.ya?ml$
+        pass_filenames: false

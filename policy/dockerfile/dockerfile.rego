@@ -46,11 +46,10 @@ allowed_repository(repository) if {
 
 final_stage := max({cmd.Stage | some cmd in from_instructions})
 
-final_stage_users := [user |
+final_stage_users := [cmd.Value[0] |
 	some cmd in input
 	cmd.Stage == final_stage
 	lower(cmd.Cmd) == "user"
-	user := cmd.Value[0]
 ]
 
 deny contains msg if {

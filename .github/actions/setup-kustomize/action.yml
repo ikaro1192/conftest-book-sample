@@ -1,0 +1,23 @@
+name: Setup Kustomize
+description: Install a pinned version of Kustomize
+inputs:
+  version:
+    description: Kustomize version
+    default: "5.8.1"
+  sha256:
+    description: SHA-256 checksum of kustomize_v<version>_linux_amd64.tar.gz
+    default: "029a7f0f4e1932c52a0476cf02a0fd855c0bb85694b82c338fc648dcb53a819d"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        SHA256: ${{ inputs.sha256 }}
+      run: |
+        archive="$RUNNER_TEMP/kustomize.tar.gz"
+        curl -sSfL -o "$archive" "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${VERSION}/kustomize_v${VERSION}_linux_amd64.tar.gz"
+        echo "${SHA256}  ${archive}" | sha256sum -c -
+        mkdir -p "$RUNNER_TEMP/bin"
+        tar xzf "$archive" -C "$RUNNER_TEMP/bin" kustomize
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"

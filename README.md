@@ -12,6 +12,9 @@
 │   └── Dockerfile          # distroless nonrootによるマルチステージビルド
 ├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM・ECRリポジトリ
 ├── k8s/                    # アプリケーションのDeployment・Service・ServiceAccountとkustomization.yaml
+├── .github/                # GitHub Actionsのワークフロー(terraform/app/policy)
+├── .regal/config.yaml      # Regalの設定
+├── .pre-commit-config.yaml # pre-commitの設定
 ├── conftest.toml           # --policy policy と --data data の指定
 ├── data/
 │   ├── allowlist.yaml      # ポリシーが参照する許可リスト
@@ -84,6 +87,25 @@ kubectl kustomize k8s | conftest test --namespace kubernetes -
 ```
 
 コマンドラインで`--data`を指定すると、`conftest.toml`の`data`は使われない。ポリシーが参照するデータは`data/`に置く。
+
+## CI
+
+`.github/workflows/`の三つのワークフローで、Conftestの検査をCIに組み込んでいる。AWSの認証情報は使わない。
+
+| ワークフロー | 内容 |
+| --- | --- |
+| `terraform.yml` | `testdata/tfplan.json`を、変更したポリシーとデータで検査し、結果をPull Requestにコメントする。`terraform plan`は実行しない |
+| `app.yml` | Dockerfileと、`k8s/`からKustomizeで生成したマニフェストを検査し、結果をPull Requestにコメントする。検査を通ったらコンテナイメージをビルドする |
+| `policy.yml` | `opa fmt`・`opa check --strict`・`opa test`・`regal lint` |
+
+検査の結果は、ジョブのサマリーにも書く。forkからのPull Requestでは、コメントせずにサマリーにだけ書く。アクションはコミットのSHAで固定し、Dependabotで更新する。
+
+手元では、pre-commitで同じ検査を実行できる。
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
 
 ## OCIレジストリでのポリシー配布
 

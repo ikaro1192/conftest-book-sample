@@ -1,0 +1,51 @@
+name: Terraform
+
+# リポジトリにあるplan結果を、変更したポリシーとデータで検査する。
+# terraform plan を実行しないため、terraform/*.tf の変更は検査しない
+on:
+  pull_request:
+    paths:
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - "testdata/tfplan.json"
+      - ".github/workflows/terraform.yml"
+  push:
+    branches: [main]
+    paths:
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - "testdata/tfplan.json"
+      - ".github/workflows/terraform.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-conftest
+
+      - name: Conftest
+        id: conftest
+        run: conftest test --namespace terraform --output json testdata/tfplan.json > conftest-result.json
+
+      # 結果をジョブのサマリーに書き、Pull Requestにコメントする。
+      # forkからのPull RequestのGITHUB_TOKENにはコメントを書く権限が無いため、
+      # forkからのPull RequestとmainブランチへのpushではPR_NUMBERを空にする
+      - name: Report
+        if: ${{ !cancelled() && steps.conftest.outcome != 'skipped' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: >-
+            ${{ github.event.pull_request.head.repo.full_name == github.repository
+            && github.event.pull_request.number || '' }}
+        run: .github/scripts/conftest-comment.sh terraform conftest-result.json

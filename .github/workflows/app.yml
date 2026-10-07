@@ -1,0 +1,72 @@
+name: App
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "k8s/**"
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - ".github/workflows/app.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "k8s/**"
+      - "policy/**"
+      - "data/**"
+      - "conftest.toml"
+      - ".github/workflows/app.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-conftest
+
+      - uses: ./.github/actions/setup-kustomize
+
+      - name: Conftest (Dockerfile)
+        run: conftest test --namespace dockerfile --output github app/Dockerfile
+
+      # 生成したマニフェストはPull Requestの差分に無いため、結果をコメントで返す
+      - name: Conftest (Kubernetes)
+        id: kubernetes
+        run: |
+          kustomize build k8s > manifests.yaml
+          status=0
+          conftest test --namespace kubernetes --output json manifests.yaml > kubernetes.json || status=$?
+          conftest test --namespace kubernetes_combined --combine --output json manifests.yaml > combined.json || status=$?
+          jq -s add kubernetes.json combined.json > conftest-result.json
+          exit "$status"
+
+      # 結果をジョブのサマリーに書き、Pull Requestにコメントする。
+      # forkからのPull RequestのGITHUB_TOKENにはコメントを書く権限が無いため、
+      # forkからのPull RequestとmainブランチへのpushではPR_NUMBERを空にする
+      - name: Report
+        if: ${{ !cancelled() && steps.kubernetes.outcome != 'skipped' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: >-
+            ${{ github.event.pull_request.head.repo.full_name == github.repository
+            && github.event.pull_request.number || '' }}
+        run: .github/scripts/conftest-comment.sh kubernetes conftest-result.json
+
+  image:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build
+        run: docker build --platform linux/arm64 -t app:${{ github.sha }} app
