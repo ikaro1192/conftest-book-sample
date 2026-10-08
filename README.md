@@ -119,6 +119,16 @@ terraform -chdir=terraform/ci apply \
   -var="tfstate_bucket=<stateのバケット>"
 ```
 
+## 付録C: Terraformのplanとapply
+
+付録Cでは、`terraform.yml`を、AWSに接続してplanとapplyを実行するものに置き換える。
+
+| ワークフロー | Pull Request | mainブランチ |
+| --- | --- | --- |
+| `terraform.yml` | plan、検査、結果をコメント | plan、検査、apply |
+
+applyのジョブはEnvironment `production`(mainブランチに限定)で実行する。ワークフローは、リポジトリの変数`TFSTATE_BUCKET`・`AWS_PLAN_ROLE_ARN`・`AWS_APPLY_ROLE_ARN`を参照する。
+
 ## OCIレジストリでのポリシー配布
 
 `policy/`配下はGitHub Actions(`.github/workflows/policy-publish.yml`)によって、GitHub Container Registry(GHCR)にOPAバンドルとしてpushされる。ワークフローを手動で実行したときだけ動く。

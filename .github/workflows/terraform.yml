@@ -1,45 +1,65 @@
 name: Terraform
 
-# リポジトリにあるplan結果を、変更したポリシーとデータで検査する。
-# terraform plan を実行しないため、terraform/*.tf の変更は検査しない
 on:
   pull_request:
     paths:
+      - "terraform/*.tf"
       - "policy/**"
       - "data/**"
       - "conftest.toml"
-      - "testdata/tfplan.json"
       - ".github/workflows/terraform.yml"
   push:
     branches: [main]
     paths:
+      - "terraform/*.tf"
       - "policy/**"
       - "data/**"
       - "conftest.toml"
-      - "testdata/tfplan.json"
       - ".github/workflows/terraform.yml"
 
 permissions:
   contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-northeast-1
+  TF_IN_AUTOMATION: "true"
 
 jobs:
-  check:
+  plan:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.15.1
+          terraform_wrapper: false
+
       - uses: ./.github/actions/setup-conftest
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Plan
+        run: |
+          terraform -chdir=terraform init -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}"
+          terraform -chdir=terraform plan -out=tfplan.binary
+          terraform -chdir=terraform show -json tfplan.binary > tfplan.json
 
       - name: Conftest
         id: conftest
-        run: conftest test --namespace terraform --output json testdata/tfplan.json > conftest-result.json
+        run: conftest test --namespace terraform --output json tfplan.json > conftest-result.json
 
       # 結果をジョブのサマリーに書き、Pull Requestにコメントする。
-      # forkからのPull RequestのGITHUB_TOKENにはコメントを書く権限が無いため、
-      # forkからのPull RequestとmainブランチへのpushではPR_NUMBERを空にする
+      # forkからのPull RequestのGITHUB_TOKENにはコメントを書く権限が無いため、PR_NUMBERを空にする
       - name: Report
         if: ${{ !cancelled() && steps.conftest.outcome != 'skipped' }}
         env:
@@ -49,3 +69,37 @@ jobs:
             ${{ github.event.pull_request.head.repo.full_name == github.repository
             && github.event.pull_request.number || '' }}
         run: .github/scripts/conftest-comment.sh terraform conftest-result.json
+
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: terraform-apply
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.15.1
+          terraform_wrapper: false
+
+      - uses: ./.github/actions/setup-conftest
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Plan
+        run: |
+          terraform -chdir=terraform init -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}"
+          terraform -chdir=terraform plan -out=tfplan.binary
+          terraform -chdir=terraform show -json tfplan.binary > tfplan.json
+
+      - name: Conftest
+        run: conftest test --namespace terraform --output github tfplan.json
+
+      - name: Apply
+        run: terraform -chdir=terraform apply tfplan.binary
