@@ -11,6 +11,7 @@
 │   ├── main_test.go
 │   └── Dockerfile          # distroless nonrootによるマルチステージビルド
 ├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM・ECRリポジトリ
+│   └── ci/                 # 付録B: GitHub ActionsのOIDCプロバイダ・IAMロール。付録D: Argo CD(EKS Capabilities)
 ├── k8s/                    # アプリケーションのDeployment・Service・ServiceAccountとkustomization.yaml
 ├── .github/                # GitHub Actionsのワークフロー(terraform/app/policy)
 ├── .regal/config.yaml      # Regalの設定
@@ -105,6 +106,17 @@ kubectl kustomize k8s | conftest test --namespace kubernetes -
 ```bash
 pre-commit install
 pre-commit run --all-files
+```
+
+## 付録B: GitHub Actions用のAWSリソース
+
+GitHub ActionsのOIDCプロバイダとIAMロールは`terraform/ci/`にあり、手元から適用する。
+
+```bash
+terraform -chdir=terraform/ci init -backend-config="bucket=<stateのバケット>"
+terraform -chdir=terraform/ci apply \
+  -var="github_oidc_sub_prefix=$(gh api repos/<owner>/conftest-book-sample/actions/oidc/customization/sub --jq .sub_claim_prefix)" \
+  -var="tfstate_bucket=<stateのバケット>"
 ```
 
 ## OCIレジストリでのポリシー配布
