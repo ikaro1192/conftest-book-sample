@@ -13,6 +13,7 @@
 ├── terraform/              # VPC・Amazon EKSクラスタ・ノードグループ・IAM・ECRリポジトリ
 │   └── ci/                 # 付録B: GitHub ActionsのOIDCプロバイダ・IAMロール。付録D: Argo CD(EKS Capabilities)
 ├── k8s/                    # アプリケーションのDeployment・Service・ServiceAccountとkustomization.yaml
+├── deploy/dev/             # 付録D: デプロイ用のKustomizeのオーバーレイ(イメージはCIで置き換える)
 ├── .github/                # GitHub Actionsのワークフロー(terraform/app/policy)
 ├── .regal/config.yaml      # Regalの設定
 ├── .pre-commit-config.yaml # pre-commitの設定
@@ -128,6 +129,29 @@ terraform -chdir=terraform/ci apply \
 | `terraform.yml` | plan、検査、結果をコメント | plan、検査、apply |
 
 applyのジョブはEnvironment `production`(mainブランチに限定)で実行する。ワークフローは、リポジトリの変数`TFSTATE_BUCKET`・`AWS_PLAN_ROLE_ARN`・`AWS_APPLY_ROLE_ARN`を参照する。
+
+## 付録D: Argo CDとデプロイ
+
+付録Dでは、`terraform/ci/`にArgo CD(EKS Capabilities)を加える。IAM Identity CenterのインスタンスとArgo CDの管理者のユーザー、GitHubとのCodeConnectionsの接続は、あらかじめコンソールで作成しておく。
+
+```bash
+terraform -chdir=terraform/ci apply \
+  -var="github_oidc_sub_prefix=$(gh api repos/<owner>/conftest-book-sample/actions/oidc/customization/sub --jq .sub_claim_prefix)" \
+  -var="codeconnections_arn=<CodeConnectionsの接続のARN>" \
+  -var="idc_instance_arn=<IAM Identity CenterのインスタンスのARN>" \
+  -var="argocd_admin_user_id=<Argo CDの管理者のユーザーのID>" \
+  -var="tfstate_bucket=<stateのバケット>"
+```
+
+Argo CDへのクラスタとApplicationの登録は、Argo CDのUIで発行したトークンを使い、`argocd` CLIで行う。
+
+また、`app.yml`を、AWSに接続するものに置き換える。
+
+| ワークフロー | Pull Request | mainブランチ |
+| --- | --- | --- |
+| `app.yml` | Dockerfileとマニフェストの検査、結果をコメント、ビルド | 検査、ECRへのpush、`deploy/dev/`のイメージを書き換えて検査し、mainブランチにコミット |
+
+クラスタへの適用は、Argo CDが`deploy/dev/`をmainブランチから同期して行う。ワークフローは、リポジトリの変数`AWS_ECR_PUSH_ROLE_ARN`・`ECR_REPOSITORY_URL`を参照する。
 
 ## OCIレジストリでのポリシー配布
 

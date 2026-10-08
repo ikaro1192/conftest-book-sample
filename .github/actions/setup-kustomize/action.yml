@@ -1,5 +1,5 @@
 name: Setup Kustomize
-description: Install a pinned version of Kustomize
+description: Install a pinned version of Kustomize (the version used by Argo CD)
 inputs:
   version:
     description: Kustomize version

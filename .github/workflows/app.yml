@@ -5,6 +5,7 @@ on:
     paths:
       - "app/**"
       - "k8s/**"
+      - "deploy/**"
       - "policy/**"
       - "data/**"
       - "conftest.toml"
@@ -14,6 +15,7 @@ on:
     paths:
       - "app/**"
       - "k8s/**"
+      - "deploy/**"
       - "policy/**"
       - "data/**"
       - "conftest.toml"
@@ -21,6 +23,11 @@ on:
 
 permissions:
   contents: read
+
+env:
+  AWS_REGION: ap-northeast-1
+  # k8s/deployment.yaml に書いたイメージの名前
+  BASE_IMAGE: 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/conftest-book-dev-app
 
 jobs:
   check:
@@ -42,7 +49,7 @@ jobs:
       - name: Conftest (Kubernetes)
         id: kubernetes
         run: |
-          kustomize build k8s > manifests.yaml
+          kustomize build deploy/dev > manifests.yaml
           status=0
           conftest test --namespace kubernetes --output json manifests.yaml > kubernetes.json || status=$?
           conftest test --namespace kubernetes_combined --combine --output json manifests.yaml > combined.json || status=$?
@@ -65,8 +72,62 @@ jobs:
   image:
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build
         run: docker build --platform linux/arm64 -t app:${{ github.sha }} app
+
+      - if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ECR_PUSH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - if: github.event_name == 'push'
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Push
+        if: github.event_name == 'push'
+        run: |
+          docker tag app:${{ github.sha }} ${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}
+          docker push ${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}
+
+  # 新しいイメージを指すマニフェストを検査し、mainブランチにコミットする。
+  # クラスタへの適用は、mainブランチを同期するArgo CDが行う
+  update-manifest:
+    needs: image
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: update-manifest
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-conftest
+
+      - uses: ./.github/actions/setup-kustomize
+
+      - name: Set image
+        working-directory: deploy/dev
+        run: kustomize edit set image "$BASE_IMAGE=${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}"
+
+      - name: Conftest
+        run: |
+          kustomize build deploy/dev > "$RUNNER_TEMP/manifests.yaml"
+          conftest test --namespace kubernetes --output github "$RUNNER_TEMP/manifests.yaml"
+          conftest test --namespace kubernetes_combined --combine --output github "$RUNNER_TEMP/manifests.yaml"
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy/dev: イメージを ${GITHUB_SHA::7} に更新"
+          # 検査した後にmainブランチが進んでいれば、pushは失敗する
+          git push origin HEAD:main
